@@ -1,0 +1,53 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "helm-pattern.fullname" . }}-script-job
+  labels:
+    {{- include "helm-pattern.labels" . | nindent 4 }}
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "helm-pattern.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never #OnFailure
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      #serviceAccountName: {{ include "helm-pattern.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}-script-job
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.jobImage.repository }}:{{ .Values.jobImage.label }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          envFrom:
+          #- secretRef:
+          #   name: {{ include "helm-pattern.fullname" . }}-dbsecret
+          - configMapRef:
+             name: {{ include "helm-pattern.fullname" . }}-script-job-env
+          command: ['sh', '-c', 'cat /usr/bin/script-job.sh | sh']
+          volumeMounts:
+            - mountPath: /usr/bin
+              name: scripts
+      volumes:
+        - configMap:
+            name: {{ include "helm-pattern.fullname" . }}-script-job-volume
+          name: scripts
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
